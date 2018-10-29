@@ -2,8 +2,13 @@
 
 namespace DreamFactory\Core\Firebird\Database\Schema;
 
+use DreamFactory\Core\Database\Components\DataReader;
 use DreamFactory\Core\Database\Schema\ColumnSchema;
+use DreamFactory\Core\Database\Schema\ParameterSchema;
+use DreamFactory\Core\Database\Schema\ProcedureSchema;
+use DreamFactory\Core\Database\Schema\RoutineSchema;
 use DreamFactory\Core\Database\Schema\TableSchema;
+use DreamFactory\Core\Enums\DbResourceTypes;
 use DreamFactory\Core\Enums\DbSimpleTypes;
 use DreamFactory\Core\SqlDb\Database\Schema\SqlSchema;
 
@@ -49,6 +54,109 @@ SQL;
         }
 
         return $names;
+    }
+
+    public function getProcedureNames($schema = '')
+    {
+        $sql = <<<'SQL'
+select trim(P.RDB$PROCEDURE_NAME) from RDB$PROCEDURES P 
+SQL;
+        $rows = $this->selectColumn($sql);
+        $names = [];
+        foreach ($rows as $resourceName) {
+            $schemaName = $schema;
+            $internalName = $resourceName;
+            $name = $resourceName;
+            $quotedName = $this->quoteTableName($resourceName);
+            $settings = compact('schemaName', 'resourceName', 'name', 'internalName', 'quotedName', 'parameters');
+            $names[strtolower($name)] = new ProcedureSchema($settings);
+        }
+        return $names;
+    }
+
+    public function getProcedureAttributes($procName)
+    {
+        $sql = <<<'SQL'
+select trim(P.RDB$PARAMETER_NAME) NOME, P.RDB$PARAMETER_TYPE TYPE from RDB$PROCEDURE_PARAMETERS P 
+where P.RDB$PROCEDURE_NAME = :procedureName
+SQL;
+        $rows = $this->connection->select($sql, ['procedureName' => $procName]);
+        $names = [];
+        foreach ($rows as $info) {
+            $name = $info->NOME;
+            $paramType = $info->TYPE == 1 ? 'OUT' : 'IN';
+            $settings = compact('name', 'paramType');
+            $names[strtolower($name)] = new ParameterSchema($settings);
+        }
+        return $names;
+    }
+
+    public function getSchemas()
+    {
+        return [''];
+    }
+
+    public function callProcedure($procedure, array $in_params, array &$out_params)
+    {
+        if (!$this->supportsResourceType(DbResourceTypes::TYPE_PROCEDURE)) {
+            throw new BadRequestException('Stored Procedures are not supported by this database connection.');
+        }
+
+        $paramSchemas = $this->getProcedureAttributes($procedure->name);
+        $values = $this->determineRoutineValues($paramSchemas, $in_params);
+
+        $sql = $this->getProcedureStatement($procedure, $paramSchemas, $values);
+
+        /** @type \PDOStatement $statement */
+        if (!$statement = $this->connection->getPdo()->prepare($sql)) {
+            throw new InternalServerErrorException('Failed to prepare statement: ' . $sql);
+        }
+
+        // do binding
+        $this->doRoutineBinding($statement, $paramSchemas, $values);
+
+        // support multiple result sets
+        $result = [];
+        try {
+            $rs = $statement->execute();
+            while($data = $statement->fetch(\PDO::FETCH_ASSOC)) {
+                $result[] = $data;
+            }
+        } catch (\Exception $ex) {
+            if (!$this->handleRoutineException($ex)) {
+                $errorInfo = $ex instanceof \PDOException ? $ex : null;
+                $message = $ex->getMessage();
+                throw new \Exception($message, (int)$ex->getCode(), $errorInfo);
+            }
+        }
+
+        return $result;
+    }
+
+    protected function getProcedureStatement(RoutineSchema $routine, array $param_schemas, array &$values)
+    {
+        $paramStr = $this->getRoutineParamString($param_schemas, $values);
+
+        return "EXECUTE PROCEDURE {$routine->quotedName}($paramStr)";
+    }
+
+    protected function getRoutineParamString(array $param_schemas, array &$values)
+    {
+        $paramStr = '';
+        foreach ($param_schemas as $key => $paramSchema) {
+            switch ($paramSchema->paramType) {
+                case 'IN':
+                    $pName = ':' . $paramSchema->name;
+                    $paramStr .= (empty($paramStr)) ? $pName : ", $pName";
+                    break;
+                case 'INOUT':
+                case 'OUT':
+                default:
+                    break;
+            }
+        }
+
+        return $paramStr;
     }
 
     protected function loadTableColumns(TableSchema $table)
