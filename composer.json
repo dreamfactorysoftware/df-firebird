@@ -1,5 +1,5 @@
 {
-  "name":        "dreamfactory/df-firebird",
+  "name":        "dype/df-firebird",
   "description": "Firebird SQL Database support for DreamFactory",
   "keywords":    [
     "dreamfactory",
