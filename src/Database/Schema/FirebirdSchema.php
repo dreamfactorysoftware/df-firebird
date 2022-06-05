@@ -68,7 +68,7 @@ SQL;
             $internalName = $resourceName;
             $name = $resourceName;
             $quotedName = $this->quoteTableName($resourceName);
-            $settings = compact('schemaName', 'resourceName', 'name', 'internalName', 'quotedName', 'parameters');
+            $settings = compact('schemaName', 'resourceName', 'name', 'internalName', 'quotedName');
             $names[strtolower($name)] = new ProcedureSchema($settings);
         }
         return $names;
