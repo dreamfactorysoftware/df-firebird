@@ -127,7 +127,7 @@ class FirebirdConnection extends Connection
      * @param  string $table
      * @return Builder
      */
-    public function table($table)
+    public function table($table, $as = NULL)
     {
         $processor = $this->getPostProcessor();
 
