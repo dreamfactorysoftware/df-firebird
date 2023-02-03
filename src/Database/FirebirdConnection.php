@@ -121,21 +121,6 @@ class FirebirdConnection extends Connection
         return $this->withTablePrefix(new SchemaGrammar());
     }
 
-    /**
-     * Begin a fluent query against a database table.
-     *
-     * @param  string $table
-     * @return Builder
-     */
-    public function table($table, $as = NULL)
-    {
-        $processor = $this->getPostProcessor();
-
-        $query = new Builder($this, $this->getQueryGrammar(), $processor);
-
-        return $query->from($table);
-    }
-
     protected function createTransaction()
     {
         $this->getPdo()->setAttribute(\PDO::ATTR_AUTOCOMMIT, 0);

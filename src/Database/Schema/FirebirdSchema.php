@@ -11,6 +11,7 @@ use DreamFactory\Core\Database\Schema\TableSchema;
 use DreamFactory\Core\Enums\DbResourceTypes;
 use DreamFactory\Core\Enums\DbSimpleTypes;
 use DreamFactory\Core\SqlDb\Database\Schema\SqlSchema;
+use Illuminate\Support\Arr;
 
 class FirebirdSchema extends SqlSchema
 {
@@ -205,8 +206,8 @@ SQL;
                     $table->sequenceName = $seq;
                 }
             }
-            $type = array_get($column, 'type');
-            $subType = array_get($column, 'sub_type');
+            $type = Arr::get($column, 'type');
+            $subType = Arr::get($column, 'sub_type');
             switch ((int)$type) {
                 case 7:
                     $c->dbType = DbSimpleTypes::TYPE_SMALL_INT;
@@ -340,8 +341,8 @@ SQL;
             $row = array_change_key_case((array)$row, CASE_LOWER);
             $tn = strtolower($row['table_name']);
             $cn = strtolower($row['constraint_name']);
-            $colName = array_get($row, 'column_name');
-            $refColName = array_get($row, 'referenced_column_name');
+            $colName = Arr::get($row, 'column_name');
+            $refColName = Arr::get($row, 'referenced_column_name');
             if (isset($constraints[$ts][$tn][$cn])) {
                 $constraints[$ts][$tn][$cn]['column_name'] =
                     array_merge((array)$constraints[$ts][$tn][$cn]['column_name'], (array)$colName);
@@ -488,7 +489,7 @@ SQL;
 
     public function getTimestampForSet()
     {
-        return $this->connection->raw('(CURRENT_TIMESTAMP)');
+        return $this->connection->raw('(LOCALTIMESTAMP)');
     }
 
     /** {@inheritdoc} */
@@ -522,7 +523,7 @@ SQL;
                 $info['type'] = 'timestamp';
                 $default = (isset($info['default'])) ? $info['default'] : null;
                 if (!isset($default)) {
-                    $default = 'CURRENT_TIMESTAMP';
+                    $default = 'LOCALTIMESTAMP';
                     // ON UPDATE CURRENT_TIMESTAMP not supported by Firebird, use triggers
                     $info['default'] = $default;
                 }
@@ -688,7 +689,6 @@ SQL;
                     $definition .= ' DEFAULT ' . $expression;
                 }
             } else {
-                $default = $this->quoteValue($default);
                 $definition .= ' DEFAULT ' . $default;
             }
         }
