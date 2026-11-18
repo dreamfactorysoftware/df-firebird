@@ -4,7 +4,6 @@ namespace DreamFactory\Core\Firebird\Database\Schema\Grammars;
 use Illuminate\Database\Schema\Grammars\Grammar;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Fluent;
-use DreamFactory\Core\Firebird\Database\FirebirdConnection;
 
 class FirebirdGrammar extends Grammar
 {
@@ -25,9 +24,16 @@ class FirebirdGrammar extends Grammar
     /**
      * Compile the query to determine if a table exists.
      *
+     * Laravel 13 widened the parent signature from no-args to ($schema, $table).
+     * Firebird returns a single parameterized query; the caller is expected to
+     * bind the table name (the schema arg is ignored — Firebird databases have
+     * no separate schema namespace).
+     *
+     * @param  string|null  $schema
+     * @param  string  $table
      * @return string
      */
-    public function compileTableExists()
+    public function compileTableExists($schema, $table)
     {
         return "SELECT RDB\$RELATION_NAME FROM RDB\$RELATIONS WHERE RDB\$RELATION_NAME = ?";
     }
@@ -35,12 +41,15 @@ class FirebirdGrammar extends Grammar
     /**
      * Compile a create table command.
      *
+     * Laravel 13's Blueprint::toSql() dispatches with only ($blueprint, $command);
+     * the legacy Connection arg was dropped framework-wide. Mirror the parent
+     * signature so dynamic dispatch resolves correctly.
+     *
      * @param  \Illuminate\Database\Schema\Blueprint $blueprint
      * @param  \Illuminate\Support\Fluent            $command
-     * @param  \Illuminate\Database\Connection       $connection
      * @return string
      */
-    public function compileCreate(Blueprint $blueprint, Fluent $command, FirebirdConnection $connection)
+    public function compileCreate(Blueprint $blueprint, Fluent $command)
     {
         $columns = implode(', ', $this->getColumns($blueprint));
 

@@ -98,7 +98,10 @@ class FirebirdConnection extends Connection
      */
     protected function getDefaultQueryGrammar()
     {
-        return new FirebirdGrammar;
+        // Laravel 13's base Grammar requires a Connection in its constructor,
+        // and Connection::withTablePrefix() was removed because the grammar
+        // now reads the prefix back from its connection on demand.
+        return new FirebirdGrammar($this);
     }
 
     /**
@@ -118,7 +121,7 @@ class FirebirdConnection extends Connection
      */
     protected function getDefaultSchemaGrammar()
     {
-        return $this->withTablePrefix(new SchemaGrammar());
+        return new SchemaGrammar($this);
     }
 
     protected function createTransaction()
